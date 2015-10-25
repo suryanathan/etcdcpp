@@ -27,6 +27,7 @@
 #ifndef __RAPID_REPLY_HPP_INCLUDED__
 #define __RAPID_REPLY_HPP_INCLUDED__
 
+#include <iostream>
 #include "etcd.hpp"
 
 // JSON PARSER INCLUDES
