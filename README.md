@@ -1076,6 +1076,16 @@ echo "Hello\nWorld" > afile.txt
 curl http://127.0.0.1:2379/v2/keys/afile -XPUT --data-urlencode value@afile.txt
 ```
 
+You can read the file and store it in a string. 
+```cpp
+example::Reply reply = etcd_client.Set(etcd_client.UrlEncode(value));
+```
+
+To unescape a string
+```cpp
+std::string decoded_value = etcd_client.UrlDecode(value))
+```
+
 ```json
 {
     "action": "get",

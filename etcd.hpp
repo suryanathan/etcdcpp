@@ -163,6 +163,24 @@ class Client {
         const TtlValue& ttl);
 
     /**
+     * @brief Url encode a given value
+     *
+     * @param value string to escape
+     *
+     * @return escaped string
+     */
+    std::string UrlEncode(const std::string& value);
+
+    /**
+     * @brief Url decode a given value
+     *
+     * @param value string to unescape
+     *
+     * @return unescaped string
+     */
+    std::string UrlDecode(const std::string& value);
+
+    /**
      * @brief Clear the ttl on a key.
      *
      * @param key full prefix of the key
@@ -480,6 +498,9 @@ class Curl {
              const std::string& type,
              const CurlOptions& options);
 
+    std::string UrlEncode(const std::string& value);
+    std::string UrlDecode(const std::string& value);
+
     void EnableHeader(bool onOff);
 
     std::string GetHeader();
@@ -573,6 +594,15 @@ ClearTtl(const std::string& key, const std::string& value) {
     return _GetReply(ret);
 }
 
+template <typename Reply> std::string Client<Reply>::
+UrlEncode(const std::string& value) {
+    return handle_->UrlEncode(value);
+}
+
+template <typename Reply> std::string Client<Reply>::
+UrlDecode(const std::string& value) {
+    return handle_->UrlDecode(value);
+}
 
 template <typename Reply> Reply Client<Reply>::
 SetOrdered(const std::string& dir, const std::string& value) {
@@ -998,6 +1028,24 @@ Set(const std::string& url,
     _CheckError(err, "easy perform");
 
     return write_stream_.str();
+}
+
+std::string Curl::
+UrlEncode(const std::string& value) {
+    char* encoded = curl_easy_escape(handle_, value.c_str(),  value.length());
+    std::string retval (encoded);
+    curl_free(encoded);
+    return retval;
+}
+
+std::string Curl::
+UrlDecode(const std::string& value) {
+    int out_len;
+    char* decoded = curl_easy_unescape(handle_,
+            value.c_str(), value.length(), &out_len);
+    std::string retval (decoded, size_t(out_len));
+    curl_free(decoded);
+    return retval;
 }
 
 void Curl::
