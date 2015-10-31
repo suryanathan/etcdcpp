@@ -149,6 +149,34 @@ namespace internal {
     class Curl;
 }
 
+enum class Action {
+    SET,
+    GET,
+    DELETE,
+    UPDATE,
+    CREATE,
+    COMPARE_AND_SWAP,
+    COMPARE_AND_DELETE,
+    EXPIRE,
+    UNKNOWN
+};
+
+struct ResponseActionMap : public std::map<std::string, Action> {
+    ResponseActionMap() {
+        this->operator[]("set") = Action::SET;
+        this->operator[]("get") = Action::GET;
+        this->operator[]("delete") = Action::DELETE;
+        this->operator[]("update") = Action::UPDATE;
+        this->operator[]("create") = Action::CREATE;
+        this->operator[]("compareAndSwap") = Action::COMPARE_AND_SWAP;
+        this->operator[]("compareAndDelete") = Action::COMPARE_AND_DELETE;
+        this->operator[]("expire") = Action::EXPIRE;
+    }
+
+    ~ResponseActionMap(){}
+};
+
+
 typedef uint16_t Port; 
 typedef uint64_t Index;
 typedef uint64_t TtlValue;
@@ -724,45 +752,6 @@ struct Server {
      */
     void GetEnvArgs(ArgList& args) {
         _GetEnvArgs(args);
-    }
-
-    /**
-     * @brief Start an etcd daemon
-     *
-     * @param etcd path to binary
-     * @param pidFile pid file location. Not implemented
-     */
-    void Start(const std::string& etcd, const std::string&) {
-        // A quick and dirty start function. 
-        // ToDo Create a pid file to monitor process
-        ArgList args;
-        _GetArgs(args);
-        const char ** argv = new const char* [args.size() + 2];
-        argv[0] = etcd.c_str();
-
-        for (size_t i=0; i < args.size(); ++i)
-            argv[i+1] = args[i].c_str();
-        argv[args.size()+1] = NULL;
-
-        if (pid_) {
-            if (0 == kill(pid_, 0)) {
-                // Kill if there is an existing process
-                kill (pid_, SIGKILL);
-            }
-        }
-        pid_ = 0;
-
-        pid_t pid= fork();
-        if (pid == -1)
-            throw ServerException("Failed to fork server process");
-        if (pid == 0) {
-            if (execv(etcd.c_str(), (char**) argv) == -1) {
-                throw ServerException("Exec failed with: " +
-                        std::string(strerror(errno)));
-            }
-        } else {
-            pid_ = pid;
-        }
     }
 };
 
@@ -1352,7 +1341,7 @@ Set(const std::string& url,
 
 std::string Curl::
 UrlEncode(const std::string& value) {
-    char* encoded = curl_easy_escape(handle_, value.c_str(),  value.length());
+    char* encoded = curl_easy_escape(handle_, value.c_str(), (int)value.length());
     std::string retval (encoded);
     curl_free(encoded);
     return retval;
@@ -1362,7 +1351,7 @@ std::string Curl::
 UrlDecode(const std::string& value) {
     int out_len;
     char* decoded = curl_easy_unescape(handle_,
-            value.c_str(), value.length(), &out_len);
+            value.c_str(), (int) value.length(), &out_len);
     std::string retval (decoded, size_t(out_len));
     curl_free(decoded);
     return retval;

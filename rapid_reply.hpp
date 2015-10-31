@@ -43,8 +43,10 @@ namespace example {
  * defined wrapper as song as it implements a similar interface
  */
 class RapidReply {
-
   public:
+    // Types
+    typedef std::map<std::string, std::string> KvPairs;
+
     // LIFECYCLE
     RapidReply(const std::string& reply)
       :document_(),
@@ -68,7 +70,25 @@ class RapidReply {
         std::cerr << strbuf.GetString() << '\n';
     }
 
-    etcd::Index get_modified_index() const {
+    void GetAll(KvPairs& kvPairs) {
+        if (! document_.HasMember(kNode)) {
+        }
+        //ToDo check whether prefix should be "/"
+        return _GetAll(document_[kNode], kvPairs);
+    }
+
+    etcd::Action GetAction() {
+        if (! document_.HasMember(kAction)) {
+            return etcd::Action::UNKNOWN;
+        }
+        CAM_II iter = kActionMap.find (document_[kAction].GetString());
+        if (iter == kActionMap.end()) {
+            return etcd::Action::UNKNOWN;
+        }
+        return iter->second;
+    }
+
+    etcd::Index GetModifiedIndex() const {
         if ((! document_.HasMember(kNode)) ||
             (!document_[kNode].HasMember(kModifiedIndex))) {
             throw std::runtime_error("possibly timed out");
@@ -77,13 +97,23 @@ class RapidReply {
     }
 
   private:
+    // TYPES
+    typedef etcd::ResponseActionMap::const_iterator CAM_II;
+
     // CONSTANTS
     const char *kErrorCode ="errorCode";
     const char *kMessage = "message";
     const char *kCause ="cause";
     const char *kNode = "node";
     const char *kModifiedIndex = "modifiedIndex";
+    const char *kNodes = "nodes";
+    const char *kDir = "dir";
+    const char *kKey = "key";
+    const char *kValue = "value";
+    const char* kAction = "action";
+    const etcd::ResponseActionMap kActionMap;
 
+    // DATA MEMBERS
     rapidjson::Document document_;
     std::string header_;
 
@@ -99,6 +129,25 @@ class RapidReply {
     void _Parse(const std::string& json) {
         document_.Parse(json.c_str());
         _CheckError();
+    }
+
+    void _GetAll(const rapidjson::Value& doc, KvPairs& kvPairs) {
+        if (doc.HasMember(kDir) && (doc[kDir].GetBool() == true)) {
+            if (!doc.HasMember(kNodes))
+                return;  // directory doesn't have nodes
+            const rapidjson::Value& nodes = doc[kNodes];
+            assert(nodes.IsArray());
+            for (size_t i = 0; i < nodes.Size(); ++i)
+                _GetAll(nodes[i], kvPairs);
+        } else {
+            if (doc.HasMember(kKey)) {
+                if (doc.HasMember(kValue)) {
+                    kvPairs.emplace(doc[kKey].GetString(), doc[kValue].GetString());
+                } else {
+                    kvPairs.emplace(doc[kKey].GetString(), "");
+                }
+            }
+        }
     }
 };
 
